@@ -44,6 +44,7 @@ import net.consensys.orion.http.handler.push.PushPrivacyGroupHandler;
 import net.consensys.orion.http.handler.receive.ReceiveHandler;
 import net.consensys.orion.http.handler.send.SendHandler;
 import net.consensys.orion.http.handler.set.SetPrivacyGroupHandler;
+import net.consensys.orion.http.handler.set.SetPrivacyGroupStateHandler;
 import net.consensys.orion.http.handler.tx.PushToHistoryHandler;
 import net.consensys.orion.http.handler.upcheck.UpcheckHandler;
 import net.consensys.orion.http.server.vertx.HttpErrorHandler;
@@ -164,7 +165,10 @@ public class Orion {
         new PushPrivacyGroupHandler(privacyGroupStorage, queryPrivacyGroupStorage));
 
     nodeRouter.post("/setPrivacyGroup").consumes(CBOR.httpHeaderValue).produces(JSON.httpHeaderValue).handler(
-        new SetPrivacyGroupHandler(privacyGroupStorage, queryPrivacyGroupStorage));
+            new SetPrivacyGroupHandler(privacyGroupStorage, queryPrivacyGroupStorage));
+
+    nodeRouter.post("/setPrivacyGroupState").consumes(CBOR.httpHeaderValue).produces(JSON.httpHeaderValue).handler(
+            new SetPrivacyGroupStateHandler(privacyGroupStorage));
 
     //Setup client APIs
     clientRouter
@@ -220,6 +224,7 @@ public class Orion {
         new AddToPrivacyGroupHandler(
             privacyGroupStorage,
             queryPrivacyGroupStorage,
+            privateTransactionStorage,
             networkNodes,
             enclave,
             vertx,

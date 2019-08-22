@@ -16,17 +16,20 @@ import static net.consensys.orion.http.server.HttpContentType.JSON;
 
 import net.consensys.cava.crypto.sodium.Box;
 import net.consensys.orion.config.Config;
+import net.consensys.orion.enclave.CommitmentPair;
 import net.consensys.orion.enclave.Enclave;
 import net.consensys.orion.enclave.PrivacyGroupPayload;
 import net.consensys.orion.enclave.QueryPrivacyGroupPayload;
 import net.consensys.orion.exception.OrionErrorCode;
 import net.consensys.orion.exception.OrionException;
 import net.consensys.orion.http.handler.set.SetPrivacyGroupRequest;
+import net.consensys.orion.http.handler.set.SetPrivacyGroupStateRequest;
 import net.consensys.orion.network.ConcurrentNetworkNodes;
 import net.consensys.orion.network.NodeHttpClientBuilder;
 import net.consensys.orion.storage.Storage;
 import net.consensys.orion.utils.Serializer;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -45,15 +48,15 @@ import org.apache.logging.log4j.Logger;
 public class AddToPrivacyGroupHandler extends PrivacyGroupBaseHandler implements Handler<RoutingContext> {
 
   private static final Logger log = LogManager.getLogger();
-
   private final Storage<PrivacyGroupPayload> privacyGroupStorage;
   private final Storage<QueryPrivacyGroupPayload> queryPrivacyGroupStorage;
-  private final Enclave enclave;
-
+    private final Storage<ArrayList<CommitmentPair>> privateTransactionStorage;
+    private final Enclave enclave;
 
   public AddToPrivacyGroupHandler(
       final Storage<PrivacyGroupPayload> privacyGroupStorage,
       final Storage<QueryPrivacyGroupPayload> queryPrivacyGroupStorage,
+      final Storage<ArrayList<CommitmentPair>> privateTransactionStorage,
       final ConcurrentNetworkNodes networkNodes,
       final Enclave enclave,
       final Vertx vertx,
@@ -61,7 +64,8 @@ public class AddToPrivacyGroupHandler extends PrivacyGroupBaseHandler implements
     super(networkNodes, NodeHttpClientBuilder.build(vertx, config, 1500));
     this.privacyGroupStorage = privacyGroupStorage;
     this.queryPrivacyGroupStorage = queryPrivacyGroupStorage;
-    this.enclave = enclave;
+      this.privateTransactionStorage = privateTransactionStorage;
+      this.enclave = enclave;
   }
 
   @Override
@@ -103,17 +107,11 @@ public class AddToPrivacyGroupHandler extends PrivacyGroupBaseHandler implements
             "/setPrivacyGroup");
 
         CompletableFuture.allOf(addRequests.toArray(CompletableFuture[]::new)).whenComplete((iAll, iEx) -> {
-
           if (iEx != null) {
             handleFailure(routingContext, iEx);
             return;
           }
-
           CompletableFuture<Boolean> sendStateToNewUserFuture = new CompletableFuture<>();
-
-          /*
-           * Todo here: get current private network state from pantheon and send to the new members
-           * */
 
           sendStateToNewUserFuture.whenComplete((res, iiEx) -> {
             if (iiEx != null) {
@@ -154,7 +152,23 @@ public class AddToPrivacyGroupHandler extends PrivacyGroupBaseHandler implements
                     e -> routingContext.fail(new OrionException(OrionErrorCode.ENCLAVE_UNABLE_STORE_PRIVACY_GROUP, e)));
           });
 
-          //hack to get it to run for now?
+
+
+          privateTransactionStorage.get(modifyPrivacyGroupRequest.privacyGroupId()).thenAccept(resultantState -> {
+              if (resultantState.isEmpty()) {
+                  routingContext
+                          .fail(new OrionException(OrionErrorCode.ENCLAVE_PRIVACY_GROUP_MISSING, "privacy group not found"));
+                  return;
+              }
+              SetPrivacyGroupStateRequest setGroupStateRequest = new SetPrivacyGroupStateRequest(modifyPrivacyGroupRequest.privacyGroupId(), resultantState.get());
+
+
+
+          });
+
+
+
+
           sendStateToNewUserFuture.complete(true);
         });
       }
