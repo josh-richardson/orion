@@ -13,8 +13,10 @@
 package net.consensys.orion.acceptance;
 
 import static net.consensys.cava.io.Base64.decodeBytes;
+import static net.consensys.orion.http.server.HttpContentType.CBOR;
 import static net.consensys.orion.http.server.HttpContentType.JSON;
 
+import net.consensys.orion.enclave.EncryptedPayload;
 import net.consensys.orion.http.handler.privacy.DeletePrivacyGroupRequest;
 import net.consensys.orion.http.handler.privacy.FindPrivacyGroupRequest;
 import net.consensys.orion.http.handler.privacy.ModifyPrivacyGroupRequest;
@@ -25,6 +27,7 @@ import net.consensys.orion.http.handler.receive.ReceiveResponse;
 import net.consensys.orion.http.handler.tx.PushToHistoryRequest;
 import net.consensys.orion.utils.Serializer;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -184,6 +187,23 @@ public class EthClientStub {
     return Optional.ofNullable(keyFuture.join());
   }
 
+
+  public Optional<String> push(EncryptedPayload payload) {
+    CompletableFuture<String> pushFuture = new CompletableFuture<>();
+    httpClient.post(clientPort, "localhost", "/push").handler(resp -> {
+      if (resp.statusCode() == 200) {
+        resp.bodyHandler((body) -> {
+          pushFuture.complete(new String(body.getBytes(), StandardCharsets.UTF_8));
+        });
+      } else {
+        pushFuture.complete(null);
+      }
+    }).exceptionHandler(pushFuture::completeExceptionally).putHeader("Content-Type", "application/cbor").end(
+        Buffer.buffer(Serializer.serialize(CBOR, payload)));
+    return Optional.ofNullable(pushFuture.join());
+  }
+
+
   public Optional<Boolean> pushToHistory(
       String privacyGroupId,
       String privacyMarkerTransactionHash,
@@ -206,12 +226,11 @@ public class EthClientStub {
   }
 
   public Optional<PrivacyGroup> modifyPrivacyGroup(
-      String[] addresses,
+      String address,
       String from,
       String privacyGroupId,
       String endpoint) {
-    ModifyPrivacyGroupRequest modifyPrivacyGroupRequest =
-        new ModifyPrivacyGroupRequest(addresses, from, privacyGroupId);
+    ModifyPrivacyGroupRequest modifyPrivacyGroupRequest = new ModifyPrivacyGroupRequest(address, from, privacyGroupId);
     CompletableFuture<PrivacyGroup> keyFuture = new CompletableFuture<>();
 
     httpClient.post(clientPort, "localhost", endpoint).handler(resp -> {
