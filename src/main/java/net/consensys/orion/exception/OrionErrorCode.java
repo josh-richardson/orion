@@ -59,7 +59,10 @@ public enum OrionErrorCode {
   CREATE_GROUP_INCLUDE_SELF("CreatePrivacyGroupShouldIncludeSelf"),
   CREATE_GROUP_INVALID_PARAMS("CreateGroupInvalidParams"),
   UNABLE_TO_ADD_TO_PRIVACY_GROUP("UnableToAddToPrivacyGroup"),
-  ENCLAVE_UNABLE_ADD_COMMITMENT("EnclaveUnableAddCommitment");
+  ENCLAVE_UNABLE_ADD_COMMITMENT("EnclaveUnableAddCommitment"),
+  PANTHEON_URL_MISSING("PantheonUrlMissing"),
+  UNABLE_PUSH_TO_PANTHEON("UnablePushToPantheon"),
+  ENCLAVE_PRIVATE_STATE_MISSING("EnclavePrivateStateMissing");
 
   private final String code;
 

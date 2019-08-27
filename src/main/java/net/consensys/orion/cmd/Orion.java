@@ -165,10 +165,12 @@ public class Orion {
         new PushPrivacyGroupHandler(privacyGroupStorage, queryPrivacyGroupStorage));
 
     nodeRouter.post("/setPrivacyGroup").consumes(CBOR.httpHeaderValue).produces(JSON.httpHeaderValue).handler(
-            new SetPrivacyGroupHandler(privacyGroupStorage, queryPrivacyGroupStorage));
+        new SetPrivacyGroupHandler(privacyGroupStorage, queryPrivacyGroupStorage));
 
-    nodeRouter.post("/setPrivacyGroupState").consumes(CBOR.httpHeaderValue).produces(JSON.httpHeaderValue).handler(
-            new SetPrivacyGroupStateHandler(privacyGroupStorage));
+    if (config.pantheonUrl().isPresent()) {
+      nodeRouter.post("/setPrivacyGroupState").consumes(CBOR.httpHeaderValue).produces(JSON.httpHeaderValue).handler(
+          new SetPrivacyGroupStateHandler(privacyGroupStorage, config.pantheonUrl().get(), vertx, config));
+    }
 
     //Setup client APIs
     clientRouter

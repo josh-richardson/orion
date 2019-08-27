@@ -50,8 +50,8 @@ public class AddToPrivacyGroupHandler extends PrivacyGroupBaseHandler implements
   private static final Logger log = LogManager.getLogger();
   private final Storage<PrivacyGroupPayload> privacyGroupStorage;
   private final Storage<QueryPrivacyGroupPayload> queryPrivacyGroupStorage;
-    private final Storage<ArrayList<CommitmentPair>> privateTransactionStorage;
-    private final Enclave enclave;
+  private final Storage<ArrayList<CommitmentPair>> privateTransactionStorage;
+  private final Enclave enclave;
 
   public AddToPrivacyGroupHandler(
       final Storage<PrivacyGroupPayload> privacyGroupStorage,
@@ -64,8 +64,8 @@ public class AddToPrivacyGroupHandler extends PrivacyGroupBaseHandler implements
     super(networkNodes, NodeHttpClientBuilder.build(vertx, config, 1500));
     this.privacyGroupStorage = privacyGroupStorage;
     this.queryPrivacyGroupStorage = queryPrivacyGroupStorage;
-      this.privateTransactionStorage = privateTransactionStorage;
-      this.enclave = enclave;
+    this.privateTransactionStorage = privateTransactionStorage;
+    this.enclave = enclave;
   }
 
   @Override
@@ -106,73 +106,66 @@ public class AddToPrivacyGroupHandler extends PrivacyGroupBaseHandler implements
             new SetPrivacyGroupRequest(combinedPrivacyGroup.get(), modifyPrivacyGroupRequest.privacyGroupId()),
             "/setPrivacyGroup");
 
-        CompletableFuture.allOf(addRequests.toArray(CompletableFuture[]::new)).whenComplete((iAll, iEx) -> {
-          if (iEx != null) {
-            handleFailure(routingContext, iEx);
+
+        CompletableFuture.allOf(addRequests.toArray(CompletableFuture[]::new)).whenComplete((all, ex) -> {
+          if (ex != null) {
+            handleFailure(routingContext, ex);
             return;
           }
-          CompletableFuture<Boolean> sendStateToNewUserFuture = new CompletableFuture<>();
-
-          sendStateToNewUserFuture.whenComplete((res, iiEx) -> {
-            if (iiEx != null) {
-              handleFailure(routingContext, iiEx);
-              return;
-            }
-            final PrivacyGroupPayload innerCombinedPrivacyGroupPayload = combinedPrivacyGroup.get();
-            privacyGroupStorage
-                .update(privacyGroupStorage.generateDigest(oldPrivacyGroupPayload), innerCombinedPrivacyGroupPayload)
-                .thenAccept((privacyGroupResult) -> {
-
-                  final QueryPrivacyGroupPayload queryPrivacyGroupPayload =
-                      new QueryPrivacyGroupPayload(innerCombinedPrivacyGroupPayload.addresses(), null);
-
-                  queryPrivacyGroupPayload.setPrivacyGroupToAppend(modifyPrivacyGroupRequest.privacyGroupId());
-                  final String key = queryPrivacyGroupStorage.generateDigest(queryPrivacyGroupPayload);
-
-                  log.info("Stored privacy group. resulting digest: {}", key);
-                  queryPrivacyGroupStorage
-                      .update(key, queryPrivacyGroupPayload)
-                      .thenAccept((queryPrivacyGroupStorageResult) -> {
-                        final PrivacyGroup group = new PrivacyGroup(
-                            modifyPrivacyGroupRequest.privacyGroupId(),
-                            PrivacyGroupPayload.Type.PANTHEON,
-                            innerCombinedPrivacyGroupPayload.name(),
-                            innerCombinedPrivacyGroupPayload.description(),
-                            innerCombinedPrivacyGroupPayload.addresses());
-                        log.info("Storing privacy group {} complete", modifyPrivacyGroupRequest.privacyGroupId());
-
-                        final Buffer toReturn = Buffer.buffer(Serializer.serialize(JSON, group));
-                        routingContext.response().end(toReturn);
-                      })
-                      .exceptionally(
-                          e -> routingContext
-                              .fail(new OrionException(OrionErrorCode.ENCLAVE_UNABLE_STORE_PRIVACY_GROUP, e)));
-                })
-                .exceptionally(
-                    e -> routingContext.fail(new OrionException(OrionErrorCode.ENCLAVE_UNABLE_STORE_PRIVACY_GROUP, e)));
-          });
 
 
+          final PrivacyGroupPayload innerCombinedPrivacyGroupPayload = combinedPrivacyGroup.get();
+          privacyGroupStorage
+              .update(privacyGroupStorage.generateDigest(oldPrivacyGroupPayload), innerCombinedPrivacyGroupPayload)
+              .thenAccept((privacyGroupResult) -> {
 
-          privateTransactionStorage.get(modifyPrivacyGroupRequest.privacyGroupId()).thenAccept(resultantState -> {
-              if (resultantState.isEmpty()) {
-                  routingContext
-                          .fail(new OrionException(OrionErrorCode.ENCLAVE_PRIVACY_GROUP_MISSING, "privacy group not found"));
-                  return;
-              }
-              SetPrivacyGroupStateRequest setGroupStateRequest = new SetPrivacyGroupStateRequest(modifyPrivacyGroupRequest.privacyGroupId(), resultantState.get());
+                final QueryPrivacyGroupPayload queryPrivacyGroupPayload =
+                    new QueryPrivacyGroupPayload(innerCombinedPrivacyGroupPayload.addresses(), null);
 
+                queryPrivacyGroupPayload.setPrivacyGroupToAppend(modifyPrivacyGroupRequest.privacyGroupId());
+                final String key = queryPrivacyGroupStorage.generateDigest(queryPrivacyGroupPayload);
 
+                log.info("Stored privacy group. resulting digest: {}", key);
+                queryPrivacyGroupStorage
+                    .update(key, queryPrivacyGroupPayload)
+                    .thenAccept((queryPrivacyGroupStorageResult) -> {
+                      final PrivacyGroup group = new PrivacyGroup(
+                          modifyPrivacyGroupRequest.privacyGroupId(),
+                          PrivacyGroupPayload.Type.PANTHEON,
+                          innerCombinedPrivacyGroupPayload.name(),
+                          innerCombinedPrivacyGroupPayload.description(),
+                          innerCombinedPrivacyGroupPayload.addresses());
+                      log.info("Storing privacy group {} complete", modifyPrivacyGroupRequest.privacyGroupId());
 
-          });
-
-
-
-
-          sendStateToNewUserFuture.complete(true);
+                      final Buffer toReturn = Buffer.buffer(Serializer.serialize(JSON, group));
+                      privateTransactionStorage.get(modifyPrivacyGroupRequest.privacyGroupId()).thenAccept(
+                          resultantState -> {
+                            if (resultantState.isPresent()) {
+                              SetPrivacyGroupStateRequest setGroupStateRequest = new SetPrivacyGroupStateRequest(
+                                  modifyPrivacyGroupRequest.privacyGroupId(),
+                                  resultantState.get());
+                              var setPrivateStateRequests = sendRequestsToOthers(
+                                  Stream.of(enclave.readKey(modifyPrivacyGroupRequest.address())),
+                                  setGroupStateRequest,
+                                  "/setPrivacyGroupState");
+                              CompletableFuture
+                                  .allOf(setPrivateStateRequests.toArray(CompletableFuture[]::new))
+                                  .whenComplete((iAll, iEx) -> {
+                                    routingContext.response().end(toReturn);
+                                  });
+                            } else {
+                              routingContext.response().end(toReturn);
+                            }
+                          });
+                    })
+                    .exceptionally(
+                        e -> routingContext
+                            .fail(new OrionException(OrionErrorCode.ENCLAVE_UNABLE_STORE_PRIVACY_GROUP, e)));
+              })
+              .exceptionally(
+                  e -> routingContext.fail(new OrionException(OrionErrorCode.ENCLAVE_UNABLE_STORE_PRIVACY_GROUP, e)));
         });
       }
     });
   }
-
 }

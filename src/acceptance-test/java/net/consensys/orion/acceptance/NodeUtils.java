@@ -72,12 +72,43 @@ public class NodeUtils {
       String tlsServerTrust,
       String tlsClientTrust,
       String storage) throws IOException {
+    return nodeConfigWithPantheon(
+        tempDir,
+        nodePort,
+        nodeNetworkInterface,
+        clientPort,
+        clientNetworkInterface,
+        null,
+        nodeName,
+        pubKeys,
+        privKeys,
+        tls,
+        tlsServerTrust,
+        tlsClientTrust,
+        storage);
+  }
+
+
+  public static Config nodeConfigWithPantheon(
+      Path tempDir,
+      int nodePort,
+      String nodeNetworkInterface,
+      int clientPort,
+      String clientNetworkInterface,
+      String pantheonUrl,
+      String nodeName,
+      String pubKeys,
+      String privKeys,
+      String tls,
+      String tlsServerTrust,
+      String tlsClientTrust,
+      String storage) throws IOException {
 
     Path workDir = tempDir.resolve("acceptance").toAbsolutePath();
     Files.createDirectories(workDir);
 
     // @formatter:off
-    final String confString =
+    String confString =
           "tls=\"" + tls + "\"\n"
         + "tlsservertrust=\"" + tlsServerTrust + "\"\n"
         + "tlsclienttrust=\"" + tlsClientTrust + "\"\n"
@@ -89,6 +120,10 @@ public class NodeUtils {
         + "publickeys = [" + pubKeys + "]\n"
         + "privatekeys = [" + privKeys + "]\n"
         + "workdir= \"" + workDir.toString() + "\"\n";
+
+    if (pantheonUrl != null) {
+      confString += "pantheonurl = \"" + pantheonUrl + "\"\n";
+    }
     // @formatter:on
 
     return Config.load(confString);

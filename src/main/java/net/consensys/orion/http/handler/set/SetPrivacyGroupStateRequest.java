@@ -12,13 +12,13 @@
  */
 package net.consensys.orion.http.handler.set;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import net.consensys.orion.enclave.CommitmentPair;
-import net.consensys.orion.enclave.PrivacyGroupPayload;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * Set the private state for a given privacy group ID
@@ -29,9 +29,8 @@ public class SetPrivacyGroupStateRequest implements Serializable {
 
   @JsonCreator
   public SetPrivacyGroupStateRequest(
-          @JsonProperty("privacyGroupId") String privacyGroupId,
-          @JsonProperty("payload") ArrayList<CommitmentPair> payload
-      ) {
+      @JsonProperty("privacyGroupId") String privacyGroupId,
+      @JsonProperty("payload") ArrayList<CommitmentPair> payload) {
     this.payload = payload;
     this.privacyGroupId = privacyGroupId;
   }

@@ -104,6 +104,15 @@ public class Config {
   }
 
   /**
+   * URL for the node to talk to Pantheon in the event that it is being added to a privacy group
+   *
+   * @return URL for the Pantheon node.
+   */
+  public Optional<URL> pantheonUrl() {
+    return getURL("pantheonurl");
+  }
+
+  /**
    * Network interface to bind the Orion API to.
    *
    * @return the network interface to bind the Orion API to
