@@ -54,6 +54,7 @@ public class SetPrivacyGroupStateHandler implements Handler<RoutingContext> {
     this.httpClient = NodeHttpClientBuilder.build(vertx, config, 1500);
   }
 
+  @Override
   public void handle(final RoutingContext routingContext) {
     final byte[] request = routingContext.getBody().getBytes();
     final SetPrivacyGroupStateRequest setStateRequest =

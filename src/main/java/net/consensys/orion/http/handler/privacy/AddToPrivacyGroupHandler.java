@@ -148,37 +148,40 @@ public class AddToPrivacyGroupHandler extends PrivacyGroupBaseHandler implements
                             innerCombinedPrivacyGroupPayload.addresses());
                         log.info("Storing privacy group {} complete", modifyPrivacyGroupRequest.privacyGroupId());
 
-                      final Buffer toReturn = Buffer.buffer(Serializer.serialize(JSON, group));
-                      privateTransactionStorage.get(modifyPrivacyGroupRequest.privacyGroupId()).thenAccept(
-                          resultantState -> {
-                            if (resultantState.isPresent()) {
-                              SetPrivacyGroupStateRequest setGroupStateRequest = new SetPrivacyGroupStateRequest(
-                                  modifyPrivacyGroupRequest.privacyGroupId(),
-                                  resultantState.get());
-                              var setPrivateStateRequests = sendRequestsToOthers(
-                                  Stream.of(enclave.readKey(modifyPrivacyGroupRequest.address())),
-                                  setGroupStateRequest,
-                                  "/setPrivacyGroupState");
-                              CompletableFuture
-                                  .allOf(setPrivateStateRequests.toArray(CompletableFuture[]::new))
-                                  .whenComplete((iAll, iEx) -> {
-                                    routingContext.response().end(toReturn);
-                                  });
-                            } else {
-                              routingContext.response().end(toReturn);
-                            }
-                          });
-                    })
-                    .exceptionally(
-                        e -> routingContext
-                            .fail(new OrionException(OrionErrorCode.ENCLAVE_UNABLE_STORE_PRIVACY_GROUP, e)));
-              })
-              .exceptionally(
-                  e -> routingContext.fail(new OrionException(OrionErrorCode.ENCLAVE_UNABLE_STORE_PRIVACY_GROUP, e)));
-        });
+                        final Buffer toReturn = Buffer.buffer(Serializer.serialize(JSON, group));
+                        privateTransactionStorage.get(modifyPrivacyGroupRequest.privacyGroupId()).thenAccept(
+                            resultantState -> {
+                              if (resultantState.isPresent()) {
+                                SetPrivacyGroupStateRequest setGroupStateRequest = new SetPrivacyGroupStateRequest(
+                                    modifyPrivacyGroupRequest.privacyGroupId(),
+                                    resultantState.get());
+                                var setPrivateStateRequests = sendRequestsToOthers(
+                                    Stream.of(enclave.readKey(modifyPrivacyGroupRequest.address())),
+                                    setGroupStateRequest,
+                                    "/setPrivacyGroupState");
+                                CompletableFuture.allOf(setPrivateStateRequests).whenComplete(
+                                    (a, e) -> routingContext.response().end(toReturn));
+                              } else {
+                                routingContext.response().end(toReturn);
+                              }
+                            });
+                      })
+                      .exceptionally(
+                          e -> routingContext
+                              .fail(new OrionException(OrionErrorCode.ENCLAVE_UNABLE_STORE_PRIVACY_GROUP, e)));
+                })
+                .exceptionally(
+                    e -> routingContext.fail(new OrionException(OrionErrorCode.ENCLAVE_UNABLE_STORE_PRIVACY_GROUP, e)));
+          });
+
+        }).exceptionally(
+                e -> {
+                    routingContext.fail(new OrionException(OrionErrorCode.ENCLAVE_UNABLE_STORE_PRIVACY_GROUP, e));
+                    return null;
+                });
       }
+
     }).exceptionally(
         e -> routingContext.fail(new OrionException(OrionErrorCode.ENCLAVE_UNABLE_STORE_PRIVACY_GROUP, e)));
   }
-
 }
