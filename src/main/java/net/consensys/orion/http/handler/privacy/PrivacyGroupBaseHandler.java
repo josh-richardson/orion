@@ -27,6 +27,7 @@ import java.util.stream.Stream;
 
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClient;
+import io.vertx.core.http.HttpClientResponse;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -42,9 +43,8 @@ abstract class PrivacyGroupBaseHandler {
     this.httpClient = httpClient;
   }
 
-
-  @SuppressWarnings("rawtypes")
-  Stream<CompletableFuture> sendRequestsToOthers(
+  @SuppressWarnings("unchecked")
+  CompletableFuture<Boolean>[] sendRequestsToOthers(
       Stream<Box.PublicKey> addresses,
       Serializable request,
       String endpoint) {
@@ -59,19 +59,28 @@ abstract class PrivacyGroupBaseHandler {
       httpClient
           .post(recipientURL.getPort(), recipientURL.getHost(), endpoint)
           .putHeader("Content-Type", "application/cbor")
-          .handler(response -> response.bodyHandler(responseBody -> {
-            log.info("{} with URL {} responded with {}", pKey, recipientURL.toString(), response.statusCode());
-            if (response.statusCode() != 200) {
-              responseFuture.completeExceptionally(new OrionException(OrionErrorCode.NODE_PROPAGATING_TO_ALL_PEERS));
-            } else {
-              log.info("Success for {}", endpoint);
-              responseFuture.complete(true);
-            }
-          }))
+          .handler(response -> handleResponse(endpoint, pKey, recipientURL, responseFuture, response))
           .exceptionHandler(
               ex -> responseFuture.completeExceptionally(new OrionException(OrionErrorCode.NODE_PUSHING_TO_PEER, ex)))
           .end(Buffer.buffer(payload));
       return responseFuture;
+    }).toArray(CompletableFuture[]::new);
+  }
+
+  private void handleResponse(
+      String endpoint,
+      Box.PublicKey pKey,
+      URL recipientURL,
+      CompletableFuture<Boolean> responseFuture,
+      HttpClientResponse response) {
+    response.bodyHandler(responseBody -> {
+      log.info("{} with URL {} responded with {}", pKey, recipientURL.toString(), response.statusCode());
+      if (response.statusCode() != 200) {
+        responseFuture.completeExceptionally(new OrionException(OrionErrorCode.NODE_PROPAGATING_TO_ALL_PEERS));
+      } else {
+        log.info("Success for {}", endpoint);
+        responseFuture.complete(true);
+      }
     });
   }
 

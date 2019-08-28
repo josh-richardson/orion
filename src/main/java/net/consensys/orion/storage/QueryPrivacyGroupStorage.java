@@ -73,13 +73,7 @@ public class QueryPrivacyGroupStorage implements Storage<QueryPrivacyGroupPayloa
       List<String> listPrivacyGroupIds;
       QueryPrivacyGroupPayload queryPrivacyGroupPayload;
       if (result.isPresent()) {
-        if (data.isToDelete()) {
-          result.get().privacyGroupId().remove(data.privacyGroupToAppend());
-        } else if (!result.get().privacyGroupId().contains(data.privacyGroupToAppend())) {
-          result.get().privacyGroupId().add(data.privacyGroupToAppend());
-        }
-        listPrivacyGroupIds = result.get().privacyGroupId();
-        queryPrivacyGroupPayload = new QueryPrivacyGroupPayload(result.get().addresses(), listPrivacyGroupIds);
+        queryPrivacyGroupPayload = handleAlreadyPresentUpdate(data, result.get());
       } else {
         listPrivacyGroupIds = Collections.singletonList(data.privacyGroupToAppend());
         queryPrivacyGroupPayload = new QueryPrivacyGroupPayload(data.addresses(), listPrivacyGroupIds);
@@ -88,5 +82,20 @@ public class QueryPrivacyGroupStorage implements Storage<QueryPrivacyGroupPayloa
       put(queryPrivacyGroupPayload);
       return Optional.of(queryPrivacyGroupPayload);
     });
+  }
+
+  private QueryPrivacyGroupPayload handleAlreadyPresentUpdate(
+      QueryPrivacyGroupPayload data,
+      QueryPrivacyGroupPayload result) {
+    List<String> listPrivacyGroupIds;
+    QueryPrivacyGroupPayload queryPrivacyGroupPayload;
+    if (data.isToDelete()) {
+      result.privacyGroupId().remove(data.privacyGroupToAppend());
+    } else if (!result.privacyGroupId().contains(data.privacyGroupToAppend())) {
+      result.privacyGroupId().add(data.privacyGroupToAppend());
+    }
+    listPrivacyGroupIds = result.privacyGroupId();
+    queryPrivacyGroupPayload = new QueryPrivacyGroupPayload(result.addresses(), listPrivacyGroupIds);
+    return queryPrivacyGroupPayload;
   }
 }
