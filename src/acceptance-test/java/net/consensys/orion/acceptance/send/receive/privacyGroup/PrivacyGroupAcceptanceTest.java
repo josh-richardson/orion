@@ -13,6 +13,7 @@
 package net.consensys.orion.acceptance.send.receive.privacyGroup;
 
 import static io.vertx.core.Vertx.vertx;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static net.consensys.cava.io.Base64.decodeBytes;
 import static net.consensys.cava.io.file.Files.copyResource;
 import static net.consensys.orion.acceptance.NodeUtils.joinPathsAsTomlListEntry;
@@ -25,6 +26,9 @@ import net.consensys.cava.junit.TempDirectory;
 import net.consensys.orion.acceptance.NodeUtils;
 import net.consensys.orion.cmd.Orion;
 import net.consensys.orion.config.Config;
+import net.consensys.orion.enclave.EncryptedPayload;
+import net.consensys.orion.enclave.sodium.MemoryKeyStore;
+import net.consensys.orion.enclave.sodium.SodiumEnclave;
 import net.consensys.orion.http.server.HttpContentType;
 import net.consensys.orion.network.ConcurrentNetworkNodes;
 import net.consensys.orion.utils.Serializer;
@@ -64,6 +68,7 @@ class PrivacyGroupAcceptanceTest {
   HttpClient firstHttpClient;
   HttpClient secondHttpClient;
   HttpClient thirdHttpClient;
+  MemoryKeyStore memoryKeyStore;
 
   @BeforeEach
   void setUpTriNodes(@TempDirectory Path tempDir) throws Exception {
@@ -107,12 +112,13 @@ class PrivacyGroupAcceptanceTest {
         "tofu",
         "tofu",
         "sql:" + jdbcUrl);
-    thirdNodeConfig = NodeUtils.nodeConfig(
+    thirdNodeConfig = NodeUtils.nodeConfigWithPantheon(
         tempDir,
         0,
         "127.0.0.1",
         0,
         "127.0.0.1",
+        "http://localhost:8000",
         "node3",
         joinPathsAsTomlListEntry(key3pub),
         joinPathsAsTomlListEntry(key3key),
@@ -147,12 +153,22 @@ class PrivacyGroupAcceptanceTest {
     Request request = new Request.Builder().post(partyInfoBody).url(firstNodeBaseUrl + "/partyinfo").build();
     // first /partyinfo call may just get the one node, so wait until we get exactly 3 nodes
     await().atMost(5, TimeUnit.SECONDS).until(() -> getPartyInfoResponse(httpClient, request).nodeURLs().size() == 3);
+
+    memoryKeyStore = new MemoryKeyStore();
   }
 
   private ConcurrentNetworkNodes getPartyInfoResponse(OkHttpClient httpClient, Request request) throws Exception {
     Response resp = httpClient.newCall(request).execute();
     assertEquals(200, resp.code());
     return Serializer.deserialize(HttpContentType.CBOR, ConcurrentNetworkNodes.class, resp.body().bytes());
+  }
+
+
+  EncryptedPayload mockPayload() {
+    SodiumEnclave sEnclave = new SodiumEnclave(memoryKeyStore);
+    Box.PublicKey k1 = memoryKeyStore.generateKeyPair();
+    Box.PublicKey k2 = memoryKeyStore.generateKeyPair();
+    return sEnclave.encrypt("something important".getBytes(UTF_8), k1, new Box.PublicKey[] {k2}, null);
   }
 
   @AfterEach

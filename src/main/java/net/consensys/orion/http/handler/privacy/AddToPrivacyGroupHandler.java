@@ -198,6 +198,7 @@ public class AddToPrivacyGroupHandler extends PrivacyGroupBaseHandler implements
             setGroupStateRequest,
             "/setPrivacyGroupState");
         CompletableFuture.allOf(setPrivateStateRequests).whenComplete((iAll, iEx) -> {
+
           routingContext.response().end(toReturn);
         });
       } else {

@@ -57,93 +57,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(TempDirectoryExtension.class)
-class PushTransactionToPrivacyGroupHistoryTest {
-
-  private static final String PK_1_B_64 = "A1aVtMxLCUHmBVHXoZzzBgPbW/wj5axDpW9X8l91SGo=";
-  private static final String PK_2_B_64 = "Ko2bVqD+nNlNYL5EE7y3IdOnviftjiizpjRt+HTuFBs=";
-
-  private Orion firstOrionLauncher;
-  private Vertx vertx;
-  private HttpClient firstHttpClient;
-  private MemoryKeyStore memoryKeyStore;
-
-  @BeforeEach
-  void setUpSingleNode(@TempDirectory Path tempDir) throws Exception {
-    vertx = vertx();
-
-    Path key1pub = copyResource("key1.pub", tempDir.resolve("key1.pub"));
-    Path key1key = copyResource("key1.key", tempDir.resolve("key1.key"));
-    Path key2pub = copyResource("key2.pub", tempDir.resolve("key2.pub"));
-    Path key2key = copyResource("key2.key", tempDir.resolve("key2.key"));
-
-    String jdbcUrl = "jdbc:h2:" + tempDir.resolve("node2").toString();
-    try (Connection conn = DriverManager.getConnection(jdbcUrl)) {
-      Statement st = conn.createStatement();
-      st.executeUpdate("create table if not exists store(key char(60), value binary, primary key(key))");
-    }
-
-    Config firstNodeConfig = NodeUtils.nodeConfig(
-        tempDir,
-        0,
-        "127.0.0.1",
-        0,
-        "127.0.0.1",
-        "node1",
-        joinPathsAsTomlListEntry(key1pub),
-        joinPathsAsTomlListEntry(key1key),
-        "off",
-        "tofu",
-        "tofu",
-        "leveldb:database/node1");
-
-    Config secondNodeConfig = NodeUtils.nodeConfig(
-        tempDir,
-        0,
-        "127.0.0.1",
-        0,
-        "127.0.0.1",
-        "node2",
-        joinPathsAsTomlListEntry(key2pub),
-        joinPathsAsTomlListEntry(key2key),
-        "off",
-        "tofu",
-        "tofu",
-        "sql:" + jdbcUrl);
-
-    firstOrionLauncher = NodeUtils.startOrion(firstNodeConfig);
-    firstHttpClient = vertx.createHttpClient();
-    Orion secondOrionLauncher = NodeUtils.startOrion(secondNodeConfig);
-
-    Box.PublicKey pk1 = Box.PublicKey.fromBytes(decodeBytes(PK_1_B_64));
-    Box.PublicKey pk2 = Box.PublicKey.fromBytes(decodeBytes(PK_2_B_64));
-
-    ConcurrentNetworkNodes networkNodes =
-        new ConcurrentNetworkNodes(NodeUtils.url("127.0.0.1", firstOrionLauncher.nodePort()));
-    networkNodes.addNode(pk1, NodeUtils.url("127.0.0.1", firstOrionLauncher.nodePort()));
-    networkNodes.addNode(pk2, NodeUtils.url("127.0.0.1", secondOrionLauncher.nodePort()));
-
-    RequestBody partyInfoBody =
-        RequestBody.create(MediaType.parse(CBOR.httpHeaderValue), Serializer.serialize(CBOR, networkNodes));
-    OkHttpClient httpClient = new OkHttpClient();
-
-    final String firstNodeBaseUrl = NodeUtils.urlString("127.0.0.1", firstOrionLauncher.nodePort());
-    Request request = new Request.Builder().post(partyInfoBody).url(firstNodeBaseUrl + "/partyinfo").build();
-    await().atMost(5, TimeUnit.SECONDS).until(() -> getPartyInfoResponse(httpClient, request).nodeURLs().size() == 2);
-
-    memoryKeyStore = new MemoryKeyStore();
-  }
-
-  private ConcurrentNetworkNodes getPartyInfoResponse(OkHttpClient httpClient, Request request) throws Exception {
-    Response resp = httpClient.newCall(request).execute();
-    assertEquals(200, resp.code());
-    return Serializer.deserialize(HttpContentType.CBOR, ConcurrentNetworkNodes.class, resp.body().bytes());
-  }
-
-  @AfterEach
-  void tearDown() {
-    firstOrionLauncher.stop();
-    vertx.close();
-  }
+class PushTransactionToPrivacyGroupHistoryTest extends PrivacyGroupAcceptanceTest {
 
   @Test
   void receiverCanViewWhenSentToPrivacyGroup() {
@@ -160,11 +74,4 @@ class PushTransactionToPrivacyGroupHistoryTest {
     assertTrue(result.isPresent() && result.get());
   }
 
-
-  private EncryptedPayload mockPayload() {
-    SodiumEnclave sEnclave = new SodiumEnclave(memoryKeyStore);
-    Box.PublicKey k1 = memoryKeyStore.generateKeyPair();
-    Box.PublicKey k2 = memoryKeyStore.generateKeyPair();
-    return sEnclave.encrypt("something important".getBytes(UTF_8), k1, new Box.PublicKey[] {k2}, null);
-  }
 }

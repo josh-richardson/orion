@@ -16,12 +16,14 @@ import static net.consensys.orion.acceptance.NodeUtils.createPrivacyGroupTransac
 import static net.consensys.orion.acceptance.NodeUtils.findPrivacyGroupTransaction;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import net.consensys.cava.junit.TempDirectoryExtension;
 import net.consensys.orion.acceptance.EthClientStub;
 import net.consensys.orion.acceptance.NodeUtils;
 import net.consensys.orion.acceptance.WaitUtils;
+import net.consensys.orion.enclave.EncryptedPayload;
 import net.consensys.orion.http.handler.privacy.PrivacyGroup;
 
 import junit.framework.AssertionFailedError;
@@ -101,5 +103,32 @@ class AddToPrivacyGroupTest extends PrivacyGroupAcceptanceTest {
     assertThrows(
         AssertionFailedError.class,
         () -> NodeUtils.addToPrivacyGroup(firstNode, "not valid", PK_1_B_64, privacyGroupId));
+  }
+
+
+  @Test
+  void addToPrivacyGroupWithState() {
+    final EthClientStub firstClient = NodeUtils.client(firstOrionLauncher.clientPort(), firstHttpClient);
+    final EthClientStub firstNode = NodeUtils.client(firstOrionLauncher.nodePort(), firstHttpClient);
+
+    final EthClientStub secondNode = NodeUtils.client(secondOrionLauncher.clientPort(), secondHttpClient);
+    final EthClientStub thirdNode = NodeUtils.client(thirdOrionLauncher.clientPort(), thirdHttpClient);
+
+    String[] addresses = new String[] {PK_1_B_64, PK_2_B_64};
+    final PrivacyGroup privacyGroup =
+            createPrivacyGroupTransaction(firstClient, addresses, PK_1_B_64, "testName", "testDescription");
+
+    EncryptedPayload payload = mockPayload();
+    var pushResult = firstNode.push(payload).orElseThrow();
+    var result = firstClient.pushToHistory(privacyGroup.getPrivacyGroupId(), "0xnotahash", pushResult);
+    assertTrue(result.isPresent() && result.get());
+
+
+    NodeUtils.addToPrivacyGroup(firstClient, PK_3_B_64, PK_1_B_64, privacyGroup.getPrivacyGroupId());
+
+    final String[] newGroupMembers = new String[] {PK_1_B_64, PK_2_B_64, PK_3_B_64};
+
+    WaitUtils.waitFor(() -> assertEquals(1, findPrivacyGroupTransaction(secondNode, newGroupMembers).length));
+
   }
 }
