@@ -165,12 +165,12 @@ public class AddToPrivacyGroupHandler extends PrivacyGroupBaseHandler implements
     final String key = queryPrivacyGroupStorage.generateDigest(queryPrivacyGroupPayload);
     log.info("Stored privacy group. resulting digest: {}", key);
     queryPrivacyGroupStorage.update(key, queryPrivacyGroupPayload).thenAccept((queryPrivacyGroupStorageResult) -> {
-      returnPrivacyGroupResponse(routingContext, modifyPrivacyGroupRequest, innerCombinedPrivacyGroupPayload);
+      buildPrivacyGroupResponse(routingContext, modifyPrivacyGroupRequest, innerCombinedPrivacyGroupPayload);
     }).exceptionally(
         e -> routingContext.fail(new OrionException(OrionErrorCode.ENCLAVE_UNABLE_STORE_PRIVACY_GROUP, e)));
   }
 
-  private void returnPrivacyGroupResponse(
+  private void buildPrivacyGroupResponse(
       final RoutingContext routingContext,
       final ModifyPrivacyGroupRequest modifyPrivacyGroupRequest,
       final PrivacyGroupPayload innerCombinedPrivacyGroupPayload) {
@@ -185,7 +185,10 @@ public class AddToPrivacyGroupHandler extends PrivacyGroupBaseHandler implements
     propagatePrivacyGroupState(routingContext, modifyPrivacyGroupRequest, toReturn);
   }
 
-  private void propagatePrivacyGroupState(final RoutingContext routingContext, final ModifyPrivacyGroupRequest modifyPrivacyGroupRequest, final Buffer toReturn) {
+  private void propagatePrivacyGroupState(
+      final RoutingContext routingContext,
+      final ModifyPrivacyGroupRequest modifyPrivacyGroupRequest,
+      final Buffer toReturn) {
     privateTransactionStorage.get(modifyPrivacyGroupRequest.privacyGroupId()).thenAccept(resultantState -> {
       if (resultantState.isPresent()) {
         SetPrivacyGroupStateRequest setGroupStateRequest =
