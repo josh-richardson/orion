@@ -36,6 +36,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(TempDirectoryExtension.class)
 class AddToPrivacyGroupTest extends PrivacyGroupAcceptanceTest {
 
+  AddToPrivacyGroupTest() {
+    super(true);
+  }
+
   @Test
   void addToPrivacyGroup() {
     final EthClientStub firstNode = NodeUtils.client(firstOrionLauncher.clientPort(), firstHttpClient);
@@ -116,19 +120,17 @@ class AddToPrivacyGroupTest extends PrivacyGroupAcceptanceTest {
 
     String[] addresses = new String[] {PK_1_B_64, PK_2_B_64};
     final PrivacyGroup privacyGroup =
-            createPrivacyGroupTransaction(firstClient, addresses, PK_1_B_64, "testName", "testDescription");
+        createPrivacyGroupTransaction(firstClient, addresses, PK_1_B_64, "testName", "testDescription");
 
     EncryptedPayload payload = mockPayload();
     var pushResult = firstNode.push(payload).orElseThrow();
     var result = firstClient.pushToHistory(privacyGroup.getPrivacyGroupId(), "0xnotahash", pushResult);
     assertTrue(result.isPresent() && result.get());
 
-
     NodeUtils.addToPrivacyGroup(firstClient, PK_3_B_64, PK_1_B_64, privacyGroup.getPrivacyGroupId());
 
     final String[] newGroupMembers = new String[] {PK_1_B_64, PK_2_B_64, PK_3_B_64};
 
     WaitUtils.waitFor(() -> assertEquals(1, findPrivacyGroupTransaction(secondNode, newGroupMembers).length));
-
   }
 }

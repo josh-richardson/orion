@@ -197,8 +197,11 @@ public class AddToPrivacyGroupHandler extends PrivacyGroupBaseHandler implements
             Stream.of(enclave.readKey(modifyPrivacyGroupRequest.address())),
             setGroupStateRequest,
             "/setPrivacyGroupState");
-        CompletableFuture.allOf(setPrivateStateRequests).whenComplete((iAll, iEx) -> {
-
+        CompletableFuture.allOf(setPrivateStateRequests).whenComplete((all, ex) -> {
+          if (ex != null) {
+            handleFailure(routingContext, ex);
+            return;
+          }
           routingContext.response().end(toReturn);
         });
       } else {

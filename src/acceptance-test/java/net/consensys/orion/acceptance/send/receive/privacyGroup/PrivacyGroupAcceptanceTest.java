@@ -46,11 +46,19 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
 class PrivacyGroupAcceptanceTest {
+
+  private boolean shouldMockPantheon;
+
+  public PrivacyGroupAcceptanceTest(boolean shouldMockPantheon) {
+    this.shouldMockPantheon = shouldMockPantheon;
+  }
 
   static final String PK_1_B_64 = "A1aVtMxLCUHmBVHXoZzzBgPbW/wj5axDpW9X8l91SGo=";
   static final String PK_2_B_64 = "Ko2bVqD+nNlNYL5EE7y3IdOnviftjiizpjRt+HTuFBs=";
@@ -72,6 +80,13 @@ class PrivacyGroupAcceptanceTest {
 
   @BeforeEach
   void setUpTriNodes(@TempDirectory Path tempDir) throws Exception {
+    MockWebServer server = new MockWebServer();
+
+    if (shouldMockPantheon) {
+      server.enqueue(new MockResponse().setBody("response"));
+      server.start();
+    }
+
 
     Path key1pub = copyResource("key1.pub", tempDir.resolve("key1.pub"));
     Path key1key = copyResource("key1.key", tempDir.resolve("key1.key"));
@@ -112,20 +127,34 @@ class PrivacyGroupAcceptanceTest {
         "tofu",
         "tofu",
         "sql:" + jdbcUrl);
-    thirdNodeConfig = NodeUtils.nodeConfigWithPantheon(
-        tempDir,
-        0,
-        "127.0.0.1",
-        0,
-        "127.0.0.1",
-        "http://localhost:8000",
-        "node3",
-        joinPathsAsTomlListEntry(key3pub),
-        joinPathsAsTomlListEntry(key3key),
-        "off",
-        "tofu",
-        "tofu",
-        "leveldb:database/node3");
+    thirdNodeConfig = shouldMockPantheon
+        ? NodeUtils.nodeConfigWithPantheon(
+            tempDir,
+            0,
+            "127.0.0.1",
+            0,
+            "127.0.0.1",
+            server.url("").toString(),
+            "node3",
+            joinPathsAsTomlListEntry(key3pub),
+            joinPathsAsTomlListEntry(key3key),
+            "off",
+            "tofu",
+            "tofu",
+            "leveldb:database/node3")
+        : NodeUtils.nodeConfig(
+            tempDir,
+            0,
+            "127.0.0.1",
+            0,
+            "127.0.0.1",
+            "node3",
+            joinPathsAsTomlListEntry(key3pub),
+            joinPathsAsTomlListEntry(key3key),
+            "off",
+            "tofu",
+            "tofu",
+            "leveldb:database/node3");
 
     vertx = vertx();
     firstOrionLauncher = NodeUtils.startOrion(firstNodeConfig);
