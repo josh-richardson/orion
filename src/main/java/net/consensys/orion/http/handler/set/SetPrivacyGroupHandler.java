@@ -48,8 +48,8 @@ public class SetPrivacyGroupHandler implements Handler<RoutingContext> {
   @SuppressWarnings("rawtypes")
   public void handle(final RoutingContext routingContext) {
     final byte[] request = routingContext.getBody().getBytes();
-    final SetPrivacyGroupRequest addRequest = Serializer.deserialize(CBOR, SetPrivacyGroupRequest.class, request);
-    updatePrivacyGroupStorage(routingContext, addRequest);
+    final SetPrivacyGroupRequest setRequest = Serializer.deserialize(CBOR, SetPrivacyGroupRequest.class, request);
+    updatePrivacyGroupStorage(routingContext, setRequest);
   }
 
   private void updatePrivacyGroupStorage(RoutingContext routingContext, SetPrivacyGroupRequest addRequest) {
@@ -60,7 +60,7 @@ public class SetPrivacyGroupHandler implements Handler<RoutingContext> {
           final QueryPrivacyGroupPayload queryPrivacyGroupPayload =
               new QueryPrivacyGroupPayload(addRequest.getPayload().addresses(), null);
 
-          queryPrivacyGroupPayload.setPrivacyGroupToAppend(addRequest.getPrivacyGroupId());
+          queryPrivacyGroupPayload.setPrivacyGroupToModify(addRequest.getPrivacyGroupId());
           final String key = queryPrivacyGroupStorage.generateDigest(queryPrivacyGroupPayload);
 
           log.info("Set privacy group. resulting digest: {}", key);

@@ -52,7 +52,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
-class PrivacyGroupAcceptanceTest {
+class PrivacyGroupAcceptanceTestBase {
 
   private boolean shouldMockPantheon;
 
