@@ -25,9 +25,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(TempDirectoryExtension.class)
-class PushTransactionToPrivacyGroupHistoryTest extends PrivacyGroupAcceptanceTest {
+class PushTransactionToPrivacyGroupHistoryTest extends PrivacyGroupAcceptanceTestBase {
 
-  public PushTransactionToPrivacyGroupHistoryTest() {
+  PushTransactionToPrivacyGroupHistoryTest() {
     super(false);
   }
 

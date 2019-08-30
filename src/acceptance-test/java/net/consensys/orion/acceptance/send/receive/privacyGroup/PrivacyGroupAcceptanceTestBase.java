@@ -56,7 +56,7 @@ class PrivacyGroupAcceptanceTestBase {
 
   private boolean shouldMockPantheon;
 
-  public PrivacyGroupAcceptanceTest(boolean shouldMockPantheon) {
+  public PrivacyGroupAcceptanceTestBase(boolean shouldMockPantheon) {
     this.shouldMockPantheon = shouldMockPantheon;
   }
 
