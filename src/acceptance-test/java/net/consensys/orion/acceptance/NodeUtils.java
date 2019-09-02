@@ -166,10 +166,10 @@ public class NodeUtils {
   }
 
   public static Boolean pushToHistory(
-      EthClientStub sender,
-      String privacyGroupId,
-      String privacyMarkerTransactionHash,
-      String enclaveKey) {
+      final EthClientStub sender,
+      final String privacyGroupId,
+      final String privacyMarkerTransactionHash,
+      final String enclaveKey) {
     return sender.pushToHistory(privacyGroupId, privacyMarkerTransactionHash, enclaveKey).orElseThrow(
         AssertionFailedError::new);
   }
