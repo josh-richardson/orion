@@ -79,7 +79,7 @@ class PrivacyGroupAcceptanceTestBase {
   MemoryKeyStore memoryKeyStore;
 
   @BeforeEach
-  void setUpTriNodes(@TempDirectory Path tempDir) throws Exception {
+  void setUpTriNodes(@TempDirectory final Path tempDir) throws Exception {
     MockWebServer server = new MockWebServer();
 
     if (shouldMockPantheon) {
