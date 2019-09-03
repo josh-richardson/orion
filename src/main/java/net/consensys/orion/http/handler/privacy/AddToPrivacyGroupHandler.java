@@ -14,10 +14,14 @@ package net.consensys.orion.http.handler.privacy;
 
 import static net.consensys.orion.http.server.HttpContentType.JSON;
 
+import net.consensys.cava.concurrent.AsyncResult;
 import net.consensys.cava.crypto.sodium.Box;
 import net.consensys.orion.config.Config;
 import net.consensys.orion.enclave.CommitmentPair;
+import net.consensys.orion.enclave.CommitmentTriplet;
 import net.consensys.orion.enclave.Enclave;
+import net.consensys.orion.enclave.EnclaveException;
+import net.consensys.orion.enclave.EncryptedPayload;
 import net.consensys.orion.enclave.PrivacyGroupPayload;
 import net.consensys.orion.enclave.QueryPrivacyGroupPayload;
 import net.consensys.orion.exception.OrionErrorCode;
@@ -32,7 +36,10 @@ import net.consensys.orion.utils.Serializer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import io.vertx.core.Handler;
@@ -53,6 +60,7 @@ public class AddToPrivacyGroupHandler extends PrivacyGroupBaseHandler implements
   private final Storage<PrivacyGroupPayload> privacyGroupStorage;
   private final Storage<QueryPrivacyGroupPayload> queryPrivacyGroupStorage;
   private final Storage<ArrayList<CommitmentPair>> privateTransactionStorage;
+  private final Storage<EncryptedPayload> storage;
   private final Enclave enclave;
 
 
@@ -60,6 +68,7 @@ public class AddToPrivacyGroupHandler extends PrivacyGroupBaseHandler implements
       final Storage<PrivacyGroupPayload> privacyGroupStorage,
       final Storage<QueryPrivacyGroupPayload> queryPrivacyGroupStorage,
       final Storage<ArrayList<CommitmentPair>> privateTransactionStorage,
+      final Storage<EncryptedPayload> storage,
       final ConcurrentNetworkNodes networkNodes,
       final Enclave enclave,
       final Vertx vertx,
@@ -68,6 +77,7 @@ public class AddToPrivacyGroupHandler extends PrivacyGroupBaseHandler implements
     this.privacyGroupStorage = privacyGroupStorage;
     this.queryPrivacyGroupStorage = queryPrivacyGroupStorage;
     this.privateTransactionStorage = privateTransactionStorage;
+    this.storage = storage;
     this.enclave = enclave;
   }
 
@@ -196,8 +206,26 @@ public class AddToPrivacyGroupHandler extends PrivacyGroupBaseHandler implements
       final Buffer toReturn) {
     privateTransactionStorage.get(modifyPrivacyGroupRequest.privacyGroupId()).thenAccept(resultantState -> {
       if (resultantState.isPresent()) {
+        var commitmentPairs = resultantState.get();
+
+        var newPairs = commitmentPairs.stream().map(p -> {
+          try {
+            var optionalEncryptedPayload = storage.get(p.enclaveKey()).get();
+            if (optionalEncryptedPayload.isPresent()) {
+              var encryptedPayload = optionalEncryptedPayload.get();
+              return new CommitmentTriplet(p.enclaveKey(), p.markerTxHash(), encryptedPayload.nonce());
+            }
+          } catch (InterruptedException ignored) {
+          }
+          return null;
+        }).filter(Objects::nonNull).toArray();
+
+        var triplets = new ArrayList<CommitmentTriplet>();
+
+
+
         SetPrivacyGroupStateRequest setGroupStateRequest =
-            new SetPrivacyGroupStateRequest(modifyPrivacyGroupRequest.privacyGroupId(), resultantState.get());
+            new SetPrivacyGroupStateRequest(modifyPrivacyGroupRequest.privacyGroupId(), triplets);
         var setPrivateStateRequests = sendRequestsToOthers(
             Stream.of(enclave.readKey(modifyPrivacyGroupRequest.address())),
             setGroupStateRequest,
@@ -214,4 +242,29 @@ public class AddToPrivacyGroupHandler extends PrivacyGroupBaseHandler implements
       }
     });
   }
+
+  /*todo: return a stream of this and then wrap in CompletableFuture.allOf, whenComplete*/
+//  private AsyncResult<ArrayList<CommitmentTriplet>> retrieveCommitmentTriplets(
+//      final ArrayList<CommitmentPair> resultantState) throws InterruptedException {
+//    var triplets = new ArrayList<CommitmentTriplet>();
+//    var futureResults = new ArrayList<AsyncResult<Optional<EncryptedPayload>>>();
+//    for (final CommitmentPair commitmentPair : resultantState) {
+//      futureResults.add(storage.get(commitmentPair.enclaveKey()));
+//
+//      storage.get(commitmentPair.enclaveKey()).thenAccept(storageItem -> {
+//        if (storageItem != null && storageItem.isPresent()) {
+//          byte[] decryptedPayload;
+//          try {
+//            decryptedPayload = enclave.decrypt(storageItem.get(), enclave.nodeKeys()[0]);
+//            triplets.add(
+//                new CommitmentTriplet(commitmentPair.enclaveKey(), commitmentPair.markerTxHash(), decryptedPayload));
+//          } catch (EnclaveException e) {
+//          }
+//        } else {
+//        }
+//      });
+//
+//    }
+//    return triplets;
+//  }
 }

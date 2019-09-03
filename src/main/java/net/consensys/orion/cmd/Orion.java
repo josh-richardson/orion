@@ -227,6 +227,7 @@ public class Orion {
             privacyGroupStorage,
             queryPrivacyGroupStorage,
             privateTransactionStorage,
+            storage,
             networkNodes,
             enclave,
             vertx,

@@ -14,16 +14,19 @@ package net.consensys.orion.enclave;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class CommitmentPair {
+public class CommitmentTriplet {
 
   private final String enclaveKey;
   private final String markerTxHash;
+  private final byte[] payload;
 
-  public CommitmentPair(
+  public CommitmentTriplet(
       @JsonProperty("enclaveKey") String enclaveKey,
-      @JsonProperty("markerTxHash") String markerTxHash) {
+      @JsonProperty("markerTxHash") String markerTxHash,
+      @JsonProperty("payload") final byte[] payload) {
     this.enclaveKey = enclaveKey;
     this.markerTxHash = markerTxHash;
+    this.payload = payload;
   }
 
   @JsonProperty("markerTxHash")
@@ -34,5 +37,10 @@ public class CommitmentPair {
   @JsonProperty("enclaveKey")
   public String enclaveKey() {
     return enclaveKey;
+  }
+
+  @JsonProperty("payload")
+  public byte[] getPayload() {
+    return payload;
   }
 }
