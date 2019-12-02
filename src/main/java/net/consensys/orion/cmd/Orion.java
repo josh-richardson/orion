@@ -33,6 +33,7 @@ import net.consensys.orion.enclave.PrivacyGroupPayload;
 import net.consensys.orion.enclave.QueryPrivacyGroupPayload;
 import net.consensys.orion.enclave.sodium.FileKeyStore;
 import net.consensys.orion.enclave.sodium.SodiumEnclave;
+import net.consensys.orion.http.handler.knownnodes.KnownNodesHandler;
 import net.consensys.orion.http.handler.partyinfo.PartyInfoHandler;
 import net.consensys.orion.http.handler.privacy.CreatePrivacyGroupHandler;
 import net.consensys.orion.http.handler.privacy.DeletePrivacyGroupHandler;
@@ -41,10 +42,12 @@ import net.consensys.orion.http.handler.push.PushHandler;
 import net.consensys.orion.http.handler.push.PushPrivacyGroupHandler;
 import net.consensys.orion.http.handler.receive.ReceiveHandler;
 import net.consensys.orion.http.handler.send.SendHandler;
+import net.consensys.orion.http.handler.sendraw.SendRawHandler;
 import net.consensys.orion.http.handler.upcheck.UpcheckHandler;
 import net.consensys.orion.http.server.vertx.HttpErrorHandler;
 import net.consensys.orion.network.ConcurrentNetworkNodes;
 import net.consensys.orion.network.NetworkDiscovery;
+import net.consensys.orion.payload.DistributePayloadManager;
 import net.consensys.orion.storage.EncryptedPayloadStorage;
 import net.consensys.orion.storage.JpaEntityManagerProvider;
 import net.consensys.orion.storage.OrionSQLKeyValueStore;
@@ -131,6 +134,7 @@ public class Orion {
       final Storage<EncryptedPayload> storage,
       final Storage<PrivacyGroupPayload> privacyGroupStorage,
       final Storage<QueryPrivacyGroupPayload> queryPrivacyGroupStorage,
+      final DistributePayloadManager distributePayloadManager,
       final Router nodeRouter,
       final Router clientRouter,
       final Config config) {
@@ -169,29 +173,13 @@ public class Orion {
         new PeerCountHandler(() -> networkNodes.nodeURLs().size()));
 
     clientRouter.post("/send").produces(JSON.httpHeaderValue).consumes(JSON.httpHeaderValue).handler(
-        new SendHandler(
-            vertx,
-            enclave,
-            storage,
-            privacyGroupStorage,
-            queryPrivacyGroupStorage,
-            networkNodes,
-            JSON,
-            config));
+        new SendHandler(distributePayloadManager));
+
     clientRouter
         .post("/sendraw")
         .produces(APPLICATION_OCTET_STREAM.httpHeaderValue)
         .consumes(APPLICATION_OCTET_STREAM.httpHeaderValue)
-        .handler(
-            new SendHandler(
-                vertx,
-                enclave,
-                storage,
-                privacyGroupStorage,
-                queryPrivacyGroupStorage,
-                networkNodes,
-                APPLICATION_OCTET_STREAM,
-                config));
+        .handler(new SendRawHandler(distributePayloadManager));
 
     clientRouter.post("/receive").produces(JSON.httpHeaderValue).consumes(JSON.httpHeaderValue).handler(
         new ReceiveHandler(enclave, storage, JSON));
@@ -223,6 +211,8 @@ public class Orion {
 
     clientRouter.post("/findPrivacyGroup").consumes(JSON.httpHeaderValue).produces(JSON.httpHeaderValue).handler(
         new FindPrivacyGroupHandler(queryPrivacyGroupStorage, privacyGroupStorage));
+
+    clientRouter.get("/knownnodes").produces(JSON.httpHeaderValue).handler(new KnownNodesHandler(networkNodes));
   }
 
   public Orion() {
@@ -398,6 +388,15 @@ public class Orion {
     final EncryptedPayloadStorage encryptedStorage = new EncryptedPayloadStorage(storage, keyBuilder);
     final QueryPrivacyGroupStorage queryPrivacyGroupStorage = new QueryPrivacyGroupStorage(storage, enclave);
     final PrivacyGroupStorage privacyGroupStorage = new PrivacyGroupStorage(storage, enclave);
+    final DistributePayloadManager distributePayloadManager = new DistributePayloadManager(
+        vertx,
+        config,
+        enclave,
+        encryptedStorage,
+        privacyGroupStorage,
+        queryPrivacyGroupStorage,
+        networkNodes);
+
     configureRoutes(
         vertx,
         networkNodes,
@@ -405,6 +404,7 @@ public class Orion {
         encryptedStorage,
         privacyGroupStorage,
         queryPrivacyGroupStorage,
+        distributePayloadManager,
         nodeRouter,
         clientRouter,
         config);
